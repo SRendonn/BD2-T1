@@ -1,0 +1,7 @@
+CREATE OR REPLACE TRIGGER ingreso_cero_hijos
+BEFORE INSERT ON INDIVIDUO
+FOR EACH ROW
+WHEN (NEW.NRO_HIJOS <> 0)
+BEGIN
+    RAISE_APPLICATION_ERROR(-20500,'Solo se permite creación con 0 hijos');
+end;
