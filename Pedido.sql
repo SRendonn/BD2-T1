@@ -1,3 +1,5 @@
+ACCEPT pedido NUMBER PROMPT 'Ingrese su pedido (kg): ';
+
 DECLARE
 
     pedido POSITIVE;
@@ -5,29 +7,28 @@ DECLARE
     peso_restante NUMBER(10);
     peso_maximo NUMBER(10);
 
-    TYPE cam_row IS TABLE OF camion%ROWTYPE;
-    camiones               cam_row;
+    cadena_informe varchar2(1000);
+
+    --Array para los camiones existentes
+    camiones GRANJA_CERDOS.fila_camion;
 
     --Array para los cerdos que pueden satisfacer el pedido
-    TYPE fila_cerdo IS TABLE OF cerdo%ROWTYPE;
-    cerdos_elegibles fila_cerdo;
-    cerdos_en_camion fila_cerdo := fila_cerdo();
+    cerdos_elegibles GRANJA_CERDOS.fila_cerdo;
+    cerdos_en_camion GRANJA_CERDOS.fila_cerdo := GRANJA_CERDOS.fila_cerdo();
 
     --Matriz para guardar la tabla de Falsos y Verdaderos
-    TYPE booleano IS TABLE OF BOOLEAN INDEX BY BINARY_INTEGER;
-    TYPE matriz_booleana IS TABLE OF  booleano INDEX BY BINARY_INTEGER;
-    matriz matriz_booleana;
+    matriz GRANJA_CERDOS.matriz_booleana;
 
-    kilos_actuales cerdo.pesokilos%TYPE;
-    fila_actual NUMBER(3);
-    conteo_fila NUMBER(3);
-    columna_actual NUMBER(3);
-    cerdos_en_camion_indice NUMBER(3) := 0;
+    --Excepción propia para cuándo no se puede hacer el pedido
+    no_se_puede EXCEPTION;
 
 BEGIN
-    pedido := 16;
+    --Entrada del pedido
+    pedido := &pedido;
+
+    --Creamos un bloque para crear una tabla cerdo_pedido
     BEGIN
-        EXECUTE IMMEDIATE 'CREATE TABLE cerdo_pedido(
+        EXECUTE IMMEDIATE 'CREATE TABLE CERDOXCAMION(
                             cerdo NUMBER(8) REFERENCES CERDO,
                             camion NUMBER(8) REFERENCES CAMION,
                             PRIMARY KEY (cerdo,camion))';
@@ -49,10 +50,13 @@ BEGIN
 
     --Comprobamos que si hayan camiones
     IF camiones.COUNT <> 0 THEN
+
         --Recorremos los camiones
         FOR camion_i IN camiones.FIRST .. camiones.LAST LOOP
+
             --Calculamos el peso que falta
             peso_restante := pedido - peso_enviado;
+            --Calculamos el máximo peso que podemos llevar en este camión según lo que aún resta del pedido
             peso_maximo := LEAST(peso_restante, camiones(camion_i).MAXIMACAPACIDADKILOS);
 
             -- Bulk Collect para encontrar los cerdos que están entre el límite
@@ -66,112 +70,83 @@ BEGIN
             ORDER BY PESOKILOS, COD
             ;
 
+            --Si hay al menos un cerdo elegible, calculamos cómo pueden entrar en el camión
             IF cerdos_elegibles.COUNT <> 0 THEN
+
                 BEGIN
-                    --Generamos la matriz de falsos y verdaderos
-                    --Siempre iniciamos desde la fila 0 hasta el último cerdito
-                    FOR fila IN 0 .. cerdos_elegibles.LAST LOOP
-
-                        --Las columnas también empiezan en 0 hasta el máximo peso que se pueda aceptar
-                        FOR columna IN 0 .. peso_maximo LOOP
-
-                            --kilos_actuales representa los kilos del cerdito que estamos analizando en el momento para crear la matriz
-                            --Si nos encontramos en la fila 0, significa que no estamos tomando ningún cerdito, por lo que se le asigna 0
-                            kilos_actuales := 0;
-                            IF fila <> 0 THEN
-                                kilos_actuales := cerdos_elegibles(fila).PESOKILOS;
-                            end if;
-
-                            IF columna = 0 THEN
-                                --Toda la columna 0 debe ser True
-                                matriz(fila)(columna) := TRUE;
-
-                            ELSIF fila = 0 THEN
-                                --Toda la fila 0 debe ser False, excepto la posición (0)(0)
-                                matriz(fila)(columna) := FALSE;
-
-                            ELSIF kilos_actuales > columna THEN
-                                /*Si los kilos del cerdito actual es menor al número de columna, solo tomamos el valor que se
-                                  encuentra en la misma columna pero una fila antes*/
-                                matriz(fila)(columna) := matriz(fila-1)(columna);
-
-                            ELSE
-                                /*En cualquier otro caso hacemos un OR entre el valor de la misma columna y fila anterior,
-                                  o entre la columna actual menos el peso del cerdito, y la fila anterior*/
-                                matriz(fila)(columna) := matriz(fila-1)(columna) OR matriz(fila-1)(columna-kilos_actuales);
-                            end if;
-
-                        end loop;
-                    end loop;
-
-                    --Imprime las columnas de la matriz generada, solo descomentar para verificar la generación de la matriz
-                    /*FOR i IN matriz.FIRST .. matriz.LAST LOOP
-                        DBMS_OUTPUT.PUT_LINE('Columna ' || i);
-                        FOR j IN matriz(i).FIRST .. matriz(i).LAST LOOP
-                            DBMS_OUTPUT.PUT_LINE(case
-                                when matriz(i)(j) then 'TRUE'
-                                when not matriz(i)(j) then 'FALSE'
-                                end
-                                );
-                        end loop;
-                    end loop;*/
 
                     /*
-                    Por defecto, el peso límite es el máximo del camión seleccionado o del límite del pedido que se ingrese, pero esto
-                    no quiere decir que se pueda usar toda esta capacidad, por lo que para saber este peso límite, hace falta revisar
-                    la matriz y determinar cuál es la última columna que tiene al menos un True. Para esto solo basta con recorrer la
-                    última fíla y todas las columnas de atrás hacia adelante, hasta que se encuentre un True
+                    Usamos el package 'GRANJA_CERDOS' para implementar el algoritmo que resuelve el 'Problema de la suma
+                    del subconjunto' (Subset Sum Problem)
                     */
-                    WHILE peso_maximo > 0 AND NOT matriz(cerdos_elegibles.LAST)(peso_maximo) LOOP
-                        peso_maximo := peso_maximo -1;
-                    end loop;
+                    matriz := GRANJA_CERDOS.MATRIZ_FALSO_VERDADERO(cerdos_elegibles, peso_maximo);
 
-                    /*
-                    Para encontrar que cerdos nos permiten usar al máximo la capacidad que tenemos disponible recorremos la matriz de
-                    nuevo de atrás hacia adelante, empezando desde la última fila y la columna correspondiente al peso máximo encontrado
-                    anteriormente
-                    */
-                    columna_actual := peso_maximo;
-                    fila_actual := cerdos_elegibles.LAST;
+                    peso_maximo := GRANJA_CERDOS.PESO_CERDOS(matriz, cerdos_elegibles, peso_maximo);
 
-                    WHILE columna_actual > 0 LOOP
-                        conteo_fila := fila_actual;
-                        FOR fila IN REVERSE 1 .. conteo_fila LOOP
-                            IF NOT matriz(fila_actual-1)(columna_actual) THEN
-                                cerdos_en_camion_indice := cerdos_en_camion_indice + 1;
-                                cerdos_en_camion.extend;
-                                cerdos_en_camion(cerdos_en_camion_indice):= cerdos_elegibles(fila_actual);
-                                columna_actual := columna_actual - cerdos_elegibles(fila_actual).PESOKILOS;
-                                fila_actual := fila_actual-1;
-                                EXIT;
-                            ELSE
-                                fila_actual := fila_actual-1;
-                            end if;
-                        end loop;
-                    end loop;
+                    cerdos_en_camion := GRANJA_CERDOS.ELEGIR_CERDOS(matriz, cerdos_elegibles, peso_maximo);
 
+                    -- Si estamos en el primer camión, imprimimos la cabecera del informe
+                    IF camion_i = camiones.FIRST THEN
+                        DBMS_OUTPUT.PUT_LINE('Informe para Mi Cerdito.');
+                        DBMS_OUTPUT.PUT_LINE('-----');
+                    end if;
 
-                    --DBMS_OUTPUT.PUT_LINE(peso_limite);
+                    --Imprimimos el id del camión
+                    DBMS_OUTPUT.PUT_LINE('Camión: ' || camiones(camion_i).IDCAMION);
 
-                    FOR cerdo_i IN 1 .. cerdos_en_camion_indice LOOP
-                        DBMS_OUTPUT.PUT_LINE(cerdos_en_camion(cerdo_i).COD || ' ' || cerdos_en_camion(cerdo_i).NOMBRE || ' ' || cerdos_en_camion(cerdo_i).PESOKILOS);
+                    --Generamos el informe de los cerdos
+                    FOR cerdo_i IN 1 .. cerdos_en_camion.LAST LOOP
+                        IF cerdo_i = 1 THEN
+                            cadena_informe := 'Lista cerdos:';
+                        end if;
+                        cadena_informe := cadena_informe||' '||cerdos_en_camion(cerdo_i).COD||' ('||cerdos_en_camion(cerdo_i).NOMBRE||') '||cerdos_en_camion(cerdo_i).PESOKILOS||'kg';
+                        IF cerdo_i <> cerdos_en_camion.LAST THEN
+                            cadena_informe := cadena_informe || ',';
+                        end if;
                         INSERT INTO CERDOXCAMION VALUES (cerdos_en_camion(cerdo_i).COD, camiones(camion_i).IDCAMION);
-                        COMMIT;
                     end loop;
+                    COMMIT;
+                    DBMS_OUTPUT.PUT_LINE(cadena_informe);
+
+                    --Imprimimos el informe del envío en el camión
+                    DBMS_OUTPUT.PUT_LINE('Total peso cerdos: '||peso_maximo||'kg. Capacidad no usada del camión: '||(camiones(camion_i).MAXIMACAPACIDADKILOS-peso_maximo)||'kg');
 
                 end;
 
+                --Actualizamos las variables para la próxima iteración del FOR
                 peso_enviado := peso_enviado + peso_maximo;
-                cerdos_en_camion := fila_cerdo();
-                cerdos_en_camion_indice := 0;
+                cerdos_en_camion := GRANJA_CERDOS.fila_cerdo();
 
             ELSE
+                /*
+                Si es el primer camión, esto quiere decir que no hay camión que pueda llevar los cerdos disponibles o
+                que no hay cerdos, por lo que no se puede satisfacer el pedido. Se lanza la excepción
+                */
+                IF camion_i = camiones.FIRST THEN
+                    RAISE no_se_puede;
+                end if;
+
+                /*
+                Si no se ejecuta la excepción, significa que hay al menos un camión que se pudo utilizar, por lo que se
+                debe imprimir el final del informe
+                */
+                DBMS_OUTPUT.PUT_LINE('-----');
+                DBMS_OUTPUT.PUT_LINE('Total Peso solicitado: '||pedido||'kg. Peso real enviado: '||peso_enviado||'kg. Peso no satisfecho: '||(pedido-peso_enviado)||'kg.');
+
+                --Salimos del for, pues ya no hay camiones que puedan enviar cerdos para cumplir con el pedido
                 EXIT;
             end if;
 
         end loop;
+
+    --Si no hay camiones, lanzamos la excepción de que no se puede satisfacer el pedido
     ELSE
-        DBMS_OUTPUT.PUT_LINE('El pedido no se puede satisfacer');
+        RAISE no_se_puede;
     end if;
 
+EXCEPTION
+    WHEN no_se_puede THEN
+        DBMS_OUTPUT.PUT_LINE('El pedido no se puede satisfacer');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error ejecutando script ' || SQLERRM || '. Código: ' || sqlcode);
 end;
