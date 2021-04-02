@@ -164,9 +164,12 @@ Notas adicionales:
 •	Para entregar por email a fjmoreno@unal.edu.co, el miércoles 7 de abril 2021 hasta las 11 am.
 •	No se reciben trabajos en hora posterior. No se reciben versiones “mejoradas”.
 •	No se revisan trabajos enviados “por accidente” a otras cuentas de correo. Solo se califican los trabajos enviados a fjmoreno@unal.edu.co.
-•	Junto con el código se debe incluir un informe de máximo 4 páginas (letra Arial 11) donde se explique brevemente cómo se solucionó cada punto. Este informe hace parte de la calificación del trabajo. No enviar los datos de prueba que usted usó para probar su código. Solo envíe el código y el informe.
+•	Junto con el código se debe incluir un informe de máximo 4 páginas (letra Arial 11) donde se explique brevemente cómo se solucionó cada punto.
+    Este informe hace parte de la calificación del trabajo. No enviar los datos de prueba que usted usó para probar su código. Solo envíe el código y el informe.
 •	Grupos de tres personas.
-•	Los trabajos deben ser independientes entre los grupos. Trabajos copiados parcial o totalmente así sea en un SOLO punto se califican con 0 (cero) en su totalidad para todos los integrantes. Las soluciones presentadas deben ser originales, concebidas por cada grupo, no copiadas de medios como páginas web, foros, librerías de programas, etc. El trabajo debe ser desarrollado por los integrantes del grupo no por personas ajenas a él. 
+•	Los trabajos deben ser independientes entre los grupos. Trabajos copiados parcial o totalmente así sea en un SOLO punto se califican con 0 (cero) en su
+    totalidad para todos los integrantes. Las soluciones presentadas deben ser originales, concebidas por cada grupo, no copiadas de medios como páginas web,
+    foros, librerías de programas, etc. El trabajo debe ser desarrollado por los integrantes del grupo no por personas ajenas a él.
 •	El monitor les puede ayudar con aspectos técnicos pero su función no es hacerles la práctica ni está autorizado para cambiar las condiciones del trabajo.
 •	Si hay errores en el enunciado por favor informarme para corregirlo.
 

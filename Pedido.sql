@@ -25,22 +25,7 @@ DECLARE
 BEGIN
     --Entrada del pedido
     pedido := &pedido;
-
-    --Creamos un bloque para crear una tabla cerdo_pedido
-    BEGIN
-        EXECUTE IMMEDIATE 'CREATE TABLE CERDOXCAMION(
-                            cerdo NUMBER(8) REFERENCES CERDO,
-                            camion NUMBER(8) REFERENCES CAMION,
-                            PRIMARY KEY (cerdo,camion))';
-    EXCEPTION
-        WHEN OTHERS THEN
-            IF SQLCODE = -955 THEN
-                DELETE CERDOXCAMION WHERE CERDO IN (SELECT CERDO FROM CERDOXCAMION);
-                COMMIT;
-            ELSE
-                DBMS_OUTPUT.PUT_LINE('Error creando tabla ' || SQLERRM || '. Código: ' || sqlcode);
-            end if;
-    end;
+    DELETE CERDOXCAMION WHERE CERDO IN (SELECT CERDO FROM CERDOXCAMION);
 
     -- Traigo los camiones disponibles ordenados de mayor a menor capacidad
     SELECT * BULK COLLECT
@@ -96,17 +81,14 @@ BEGIN
 
                     --Generamos el informe de los cerdos
                     FOR cerdo_i IN 1 .. cerdos_en_camion.LAST LOOP
-                        IF cerdo_i = 1 THEN
-                            cadena_informe := 'Lista cerdos:';
+                        IF cerdo_i <> 1 THEN
+                            cadena_informe :=  ','||cadena_informe;
                         end if;
-                        cadena_informe := cadena_informe||' '||cerdos_en_camion(cerdo_i).COD||' ('||cerdos_en_camion(cerdo_i).NOMBRE||') '||cerdos_en_camion(cerdo_i).PESOKILOS||'kg';
-                        IF cerdo_i <> cerdos_en_camion.LAST THEN
-                            cadena_informe := cadena_informe || ',';
-                        end if;
+                        cadena_informe := ' '||cerdos_en_camion(cerdo_i).COD||' ('||cerdos_en_camion(cerdo_i).NOMBRE||') '||cerdos_en_camion(cerdo_i).PESOKILOS||'kg'||cadena_informe;
                         INSERT INTO CERDOXCAMION VALUES (cerdos_en_camion(cerdo_i).COD, camiones(camion_i).IDCAMION);
                     end loop;
                     COMMIT;
-                    DBMS_OUTPUT.PUT_LINE(cadena_informe);
+                    DBMS_OUTPUT.PUT_LINE('Lista cerdos:'||cadena_informe);
 
                     --Imprimimos el informe del envío en el camión
                     DBMS_OUTPUT.PUT_LINE('Total peso cerdos: '||peso_maximo||'kg. Capacidad no usada del camión: '||(camiones(camion_i).MAXIMACAPACIDADKILOS-peso_maximo)||'kg');
@@ -116,6 +98,7 @@ BEGIN
                 --Actualizamos las variables para la próxima iteración del FOR
                 peso_enviado := peso_enviado + peso_maximo;
                 cerdos_en_camion := GRANJA_CERDOS.fila_cerdo();
+                cadena_informe := NULL;
 
             ELSE
                 /*
