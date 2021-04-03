@@ -52,7 +52,7 @@ BEGIN
                 (PESOKILOS>0 AND PESOKILOS<=peso_maximo) AND
                 COD NOT IN (SELECT CC.CERDO FROM CERDOXCAMION CC)
                 )
-            ORDER BY PESOKILOS, COD
+            ORDER BY PESOKILOS DESC, COD
             ;
 
             --Si hay al menos un cerdo elegible, calculamos cómo pueden entrar en el camión
@@ -109,19 +109,17 @@ BEGIN
                     RAISE no_se_puede;
                 end if;
 
-                /*
-                Si no se ejecuta la excepción, significa que hay al menos un camión que se pudo utilizar, por lo que se
-                debe imprimir el final del informe
-                */
-                DBMS_OUTPUT.PUT_LINE('-----');
-                DBMS_OUTPUT.PUT_LINE('Total Peso solicitado: '||pedido||'kg. Peso real enviado: '||peso_enviado||'kg. Peso no satisfecho: '||(pedido-peso_enviado)||'kg.');
-
                 --Salimos del for, pues ya no hay camiones que puedan enviar cerdos para cumplir con el pedido
                 EXIT;
             end if;
 
         end loop;
-
+        /*
+        Si no se ejecuta la excepción, significa que hay al menos un camión que se pudo utilizar, por lo que se
+        debe imprimir el final del informe
+        */
+        DBMS_OUTPUT.PUT_LINE('-----');
+        DBMS_OUTPUT.PUT_LINE('Total Peso solicitado: '||pedido||'kg. Peso real enviado: '||peso_enviado||'kg. Peso no satisfecho: '||(pedido-peso_enviado)||'kg.');
     --Si no hay camiones, lanzamos la excepción de que no se puede satisfacer el pedido
     ELSE
         RAISE no_se_puede;
