@@ -1,30 +1,22 @@
-ACCEPT pedido NUMBER PROMPT 'Ingrese su pedido (kg): ';
+CREATE OR REPLACE PROCEDURE pedidos(pedido IN CERDO.PESOKILOS%TYPE)
+IS
 
-DECLARE
-
-    pedido POSITIVE;
     peso_enviado NUMBER(10) := 0;
     peso_restante NUMBER(10);
     peso_maximo NUMBER(10);
-
     cadena_informe varchar2(1000);
-
     --Array para los camiones existentes
     camiones GRANJA_CERDOS.fila_camion;
-
     --Array para los cerdos que pueden satisfacer el pedido
     cerdos_elegibles GRANJA_CERDOS.fila_cerdo;
     cerdos_en_camion GRANJA_CERDOS.fila_cerdo := GRANJA_CERDOS.fila_cerdo();
-
     --Matriz para guardar la tabla de Falsos y Verdaderos
     matriz GRANJA_CERDOS.matriz_booleana;
-
     --Excepción propia para cuándo no se puede hacer el pedido
     no_se_puede EXCEPTION;
 
 BEGIN
     --Entrada del pedido
-    pedido := &pedido;
     DELETE CERDOXCAMION WHERE CERDO IN (SELECT CERDO FROM CERDOXCAMION);
 
     -- Traigo los camiones disponibles ordenados de mayor a menor capacidad
